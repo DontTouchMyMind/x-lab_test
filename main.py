@@ -1,38 +1,50 @@
 import xml.etree.ElementTree as XmlElementTree
 import httplib2
 import uuid
-from config import YANDEX_API_KEY
+from config import ***
 
-YANDEX_ASR_HOST = 'asr.yandex.net'
-YANDEX_ASR_PATH = '/asr_xml'
+***_HOST = '***'
+***_PATH = '/**_xml'
 CHUNK_SIZE = 1024 ** 2
 
 
 def speech_to_text(filename=None, bytes=None, request_id=uuid.uuid4().hex, topic='notes', lang='ru-RU',
-                   key=YANDEX_API_KEY):     # Добавить docstring!
-    # Если передан файл
+                   key=***_KEY):
+    """
+    Функция осуществляет вызом методов, ответственных за конвертирование и считываение байтов по блокам.
+    Конвертирование происходит в формат PCM 16000 Гц 16 бит. Далее функция выполняет формирование запроса
+    и чтение ответа.
+    :param filename: Имя файла-источника (по умолчанию None).
+    :param bytes: Переменная, которая хранит данные преобразованные в байты.
+    :param request_id: Идентификатор запроса.
+    :param topic: Топик (по умолчанию 'notes').
+    :param lang: Язык (по умолчанию русский).
+    :param key: Ключ подключения API.
+    :return: Текст, преобразованный из голосового сообщения.
+    """
+
     if filename:
         with open(filename, 'br') as file:
             bytes = file.read()
     if not bytes:
         raise Exception('Neither file name nor bytes provided.')
 
-    # Конвертирование в нужный формат
-    bytes = convert_to_pcm16b16000r(in_bytes=bytes)     # Указать какой формат.
+    # Конвертирование в PCM 16000 Гц 16 бит, т.к. формат обеспечивает наилучшее качество распознавания.
+    bytes = convert_to_pcm16b16000r(in_bytes=bytes)
 
-    # Формирование тела запроса к Yandex API
-    url = YANDEX_ASR_PATH + '?uuid=%s&key=%s&topic=%s&lang=%s' % (
+    # Формирование тела запроса.
+    url = ***_PATH + '?uuid=%s&key=%s&topic=%s&lang=%s' % (
         request_id,
         key,
         topic,
         lang
     )
 
-    # Считывание блока байтов
+    # Считывание блока байтов.
     chunks = read_chunks(CHUNK_SIZE, bytes)
 
-    # Установление соединения и формирование запроса
-    connection = httplib2.HTTPConnectionWithTimeout(YANDEX_ASR_HOST)
+    # Установление соединения и формирование запрос.
+    connection = httplib2.HTTPConnectionWithTimeout(***_HOST)
 
     connection.connect()
     connection.putrequest('POST', url)
@@ -40,7 +52,7 @@ def speech_to_text(filename=None, bytes=None, request_id=uuid.uuid4().hex, topic
     connection.putheader('Content-Type', 'audio/x-pcm;bit=16;rate=16000')
     connection.endheaders()
 
-    # Отправка байтов блоками
+    # Отправка байтов блоками.
     for chunk in chunks:
         connection.send(('%s\r\n' % hex(len(chunk))[2:]).encode())
         connection.send(chunk)
@@ -49,7 +61,7 @@ def speech_to_text(filename=None, bytes=None, request_id=uuid.uuid4().hex, topic
     connection.send('0\r\n\r\n'.encode())
     response = connection.getresponse()
 
-    # Обработка ответа сервера
+    # Обработка ответа сервера.
     if response.code == 200:
         response_text = response.read()
         xml = XmlElementTree.fromstring(response_text)
@@ -66,7 +78,6 @@ def speech_to_text(filename=None, bytes=None, request_id=uuid.uuid4().hex, topic
             if max_confidence != - float("inf"):
                 return text
             else:
-                # Создавать собственные исключения для обработки бизнес-логики - правило хорошего тона
                 raise SpeechException('No text found.\n\nResponse:\n%s' % (response_text))
         else:
             raise SpeechException('No text found.\n\nResponse:\n%s' % (response_text))
@@ -74,6 +85,6 @@ def speech_to_text(filename=None, bytes=None, request_id=uuid.uuid4().hex, topic
         raise SpeechException('Unknown error.\nCode: %s\n\n%s' % (response.code, response.read()))
 
 
-# Создание своего исключения
+# Создание своего исключения.
 class SpeechException(Exception):
     pass
